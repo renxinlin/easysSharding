@@ -93,6 +93,8 @@ public class DynamicRoutingDataSource extends AbstractRoutingDataSource implemen
 
     /**
      * 获取数据源
+     * renxl,实际上是从当前线程组中获取的ds
+     * 而ds是在方法调用时通过threadlocal设置到DynamicDataSourceContextHolder，其值来自于DynamicDataSourceAnnotationInterceptor中对@Ds的解析
      *
      * @param ds 数据源名称
      * @return 数据源

@@ -17,6 +17,7 @@
 package com.baomidou.dynamic.datasource.aop;
 
 import com.baomidou.dynamic.datasource.annotation.DS;
+import com.baomidou.dynamic.datasource.renxl.hash.annotation.HashForDbAndTable;
 import lombok.NonNull;
 import org.aopalliance.aop.Advice;
 import org.springframework.aop.Pointcut;
@@ -61,9 +62,48 @@ public class DynamicDataSourceAnnotationAdvisor extends AbstractPointcutAdvisor 
         }
     }
 
+    // 源码
+//    private Pointcut buildPointcut() {
+//        Pointcut cpc = new AnnotationMatchingPointcut(DS.class,  true);
+//        Pointcut mpc = AnnotationMatchingPointcut.forMethodAnnotation(DS.class);
+//        return new ComposablePointcut(cpc).union(mpc);
+//    }
+
+
     private Pointcut buildPointcut() {
-        Pointcut cpc = new AnnotationMatchingPointcut(DS.class, true);
+        Pointcut cpc = new AnnotationMatchingPointcut(DS.class,  true);
         Pointcut mpc = AnnotationMatchingPointcut.forMethodAnnotation(DS.class);
-        return new ComposablePointcut(cpc).union(mpc);
+        Pointcut mpc1 = AnnotationMatchingPointcut.forMethodAnnotation(HashForDbAndTable.class);
+        // TODO 测试支持DS注解或者renxl自定义注解
+        return new ComposablePointcut(cpc).union(mpc).union(mpc1);
     }
+    /**
+     *
+     * public ComposablePointcut intersection(ClassFilter other)
+     * 将复合切点和一个ClassFilter对象进行交集运算，得到一个结果复合切点
+     *
+     * public ComposablePointcut intersection(MethodMatcher other)
+     * 将复合切点和一个MethodMatcher对象进行交集运算，得到一个结果复合切点
+     *
+     * public ComposablePointcut intersection(Pointcut other)
+     * 将复合切点和一个切点对象进行交集运算，得到一个结果复合切点
+     * public ComposablePointcut union(ClassFilter other)
+     * 将复合切点和一个ClassFilter对象进行并集运算，得到一个结果复合切点
+     *
+     * public ComposablePointcut union(MethodMatcher other)
+     *
+     * 将复合切点和一个MethodMatcher对象进行并集运算，得到一个结果复合切点
+     *
+     * public ComposablePointcut union(Pointcut other)
+     * 将复合切点和一个切点对象进行并集运算，得到一个结果复合切点
+     *
+     *
+     *
+     *
+     * public static Pointcut union(Pointcut pc1, Pointcut pc2)
+     * 对两个切点进行交集运算，返回一个结果切点，该切点即ComposablePointcut对象的实例
+     *
+     * public static Pointcut intersection(Pointcut pc1, Pointcut pc2)
+     * 对两个切点进行并集运算，返回一个结果切点，该切点即ComposablePointcut对象的实例
+     */
 }

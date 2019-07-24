@@ -16,6 +16,7 @@
  */
 package com.baomidou.dynamic.datasource.spring.boot.autoconfigure;
 
+import com.alibaba.druid.support.json.JSONParser;
 import com.baomidou.dynamic.datasource.DynamicDataSourceConfigure;
 import com.baomidou.dynamic.datasource.DynamicDataSourceCreator;
 import com.baomidou.dynamic.datasource.DynamicRoutingDataSource;
@@ -29,11 +30,13 @@ import com.baomidou.dynamic.datasource.processor.DsSpelExpressionProcessor;
 import com.baomidou.dynamic.datasource.provider.DynamicDataSourceProvider;
 import com.baomidou.dynamic.datasource.provider.YmlDynamicDataSourceProvider;
 import com.baomidou.dynamic.datasource.renxl.hash.annotation.DbHashCircle;
+import com.baomidou.dynamic.datasource.renxl.hash.annotation.ShardTableInterceptor;
 import com.baomidou.dynamic.datasource.renxl.hash.annotation.TableHashCircle;
 import com.baomidou.dynamic.datasource.renxl.hash.annotation.TableHashCircleSet;
 import com.baomidou.dynamic.datasource.spring.boot.autoconfigure.druid.DruidDynamicDataSourceConfiguration;
 import com.baomidou.dynamic.datasource.strategy.DynamicDataSourceStrategy;
 import lombok.extern.slf4j.Slf4j;
+import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -46,6 +49,9 @@ import org.springframework.context.annotation.Import;
 import org.springframework.web.context.WebApplicationContext;
 
 import javax.sql.DataSource;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * 动态数据源核心自动配置类
@@ -66,6 +72,59 @@ public class DynamicDataSourceAutoConfiguration {
     @Autowired
     private DynamicDataSourceProperties properties;
 
+
+    // hash 规则部分开始======================================================start=============================================
+
+    @Bean
+    public ShardTableInterceptor getInterceptor(){
+        return new ShardTableInterceptor();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public DbHashCircle dbHashCircle( ) {
+        DbHashCircle hc = new DbHashCircle();
+        Set<String> strings = properties.getDatasource().keySet();
+        for(String dbName:strings){
+            hc.add(dbName);
+        }
+        return hc;
+    }
+
+
+    @Bean
+    @ConditionalOnMissingBean
+    public TableHashCircleSet tableHashCircleSet( ) {
+        TableHashCircleSet hcSet = new TableHashCircleSet();
+        // tablename tanlename1 逻辑表名 以及真实表名集合
+        Map<String, List<String>> tables = properties.getTables();
+
+        for(String logicTable:tables.keySet()){
+            TableHashCircle tableHashCircle = new TableHashCircle();
+            List<String> realTables = tables.get(logicTable);
+            for(String realTable:realTables){
+                tableHashCircle.add(realTable,10);
+            }
+            hcSet.getLogicTableAndHashCircle().put(logicTable,tableHashCircle);
+        }
+        return hcSet;
+    }
+
+
+    // hash 规则部分开始======================================================end===============================================
+    @Bean
+//    @ConditionalOnMissingBean
+    public DataSource dataSource(DynamicDataSourceProvider dynamicDataSourceProvider) {
+        log.info("动态数据源加载开始");
+        DynamicRoutingDataSource dataSource = new DynamicRoutingDataSource();
+        dataSource.setPrimary(properties.getPrimary());
+        dataSource.setStrategy(properties.getStrategy());
+        dataSource.setProvider(dynamicDataSourceProvider);
+        dataSource.setP6spy(properties.getP6spy());
+        dataSource.setStrict(properties.getStrict());
+        return dataSource;
+    }
+
     @Bean
     @ConditionalOnMissingBean
     public DynamicDataSourceProvider dynamicDataSourceProvider(DynamicDataSourceCreator dynamicDataSourceCreator) {
@@ -82,17 +141,7 @@ public class DynamicDataSourceAutoConfiguration {
         return dynamicDataSourceCreator;
     }
 
-    @Bean
-    @ConditionalOnMissingBean
-    public DataSource dataSource(DynamicDataSourceProvider dynamicDataSourceProvider) {
-        DynamicRoutingDataSource dataSource = new DynamicRoutingDataSource();
-        dataSource.setPrimary(properties.getPrimary());
-        dataSource.setStrategy(properties.getStrategy());
-        dataSource.setProvider(dynamicDataSourceProvider);
-        dataSource.setP6spy(properties.getP6spy());
-        dataSource.setStrict(properties.getStrict());
-        return dataSource;
-    }
+
 
     @Bean
     @ConditionalOnMissingBean
@@ -101,6 +150,8 @@ public class DynamicDataSourceAutoConfiguration {
         interceptor.setDsProcessor(dsProcessor);
         interceptor.setDbHashCircle(dbHashCircle);
         interceptor.setTableHashCircleSet(tableHashCircleSet);
+        log.info("动态数据库hash一致环数据{}",dbHashCircle);
+        log.info("动态数据表hash一致环数据{}",tableHashCircleSet);
         DynamicDataSourceAnnotationAdvisor advisor = new DynamicDataSourceAnnotationAdvisor(interceptor);
         advisor.setOrder(properties.getOrder());
         return advisor;

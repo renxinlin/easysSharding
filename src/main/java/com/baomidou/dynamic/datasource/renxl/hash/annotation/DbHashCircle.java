@@ -1,6 +1,7 @@
 package com.baomidou.dynamic.datasource.renxl.hash.annotation;
 
 import com.baomidou.dynamic.datasource.aop.DynamicDataSourceAnnotationInterceptor;
+import lombok.Data;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -10,6 +11,7 @@ import java.util.TreeMap;
 /**
  * 外部配置初始化时候添加节点
  */
+@Data
 public class DbHashCircle {
 
     private IHash hashfun = new DefaulltHash();

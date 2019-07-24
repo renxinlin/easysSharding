@@ -1,5 +1,6 @@
 package com.baomidou.dynamic.datasource.renxl.hash.annotation;
 
+import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -9,6 +10,7 @@ import java.util.TreeMap;
 /**
  * 外部配置初始化时候添加节点
  */
+@Data
 public class TableHashCircle {
 
     private IHash hashfun = new DefaulltHash();

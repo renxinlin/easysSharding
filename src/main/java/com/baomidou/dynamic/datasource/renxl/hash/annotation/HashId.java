@@ -26,7 +26,7 @@ import java.lang.annotation.*;
  * @author TaoYu Kanyuxia
  * @since 1.0.0
  */
-@Target({ElementType.TYPE, ElementType.METHOD})
+@Target({ElementType.TYPE, ElementType.METHOD,ElementType.FIELD})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 public @interface HashId {

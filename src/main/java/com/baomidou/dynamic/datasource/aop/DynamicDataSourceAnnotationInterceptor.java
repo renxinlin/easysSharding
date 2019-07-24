@@ -98,7 +98,7 @@ public class DynamicDataSourceAnnotationInterceptor implements MethodInterceptor
                                 // 动态替换的表名的
                                 logicTable = hashForDbAndTable.logicTable();
                                 // 如果注解中没有逻辑表名，则不会处理dao层的表名替换
-                                if(StringUtils.isEmpty(logicTable)){
+                                if(!StringUtils.isEmpty(logicTable)){
                                     String realTable = determineTableSharding(hashId, logicTable);
                                     // 传递给mybatis的拦截器进行执行
                                     DynamicTableContextHolder.tableInfo.set(realTable);
@@ -143,7 +143,8 @@ public class DynamicDataSourceAnnotationInterceptor implements MethodInterceptor
 //        这个realName 需要通过mybatis动态替换掉查询语句中的值
 
         if(hashId!=null){
-            return determineDatasourceByRenxl( invocation, hashId);
+            String dbName = determineDatasourceByRenxl(invocation, hashId);
+            return dbName;
         }
 
 
@@ -184,8 +185,7 @@ public class DynamicDataSourceAnnotationInterceptor implements MethodInterceptor
 
     private String determineDatasourceByRenxl(MethodInvocation invocation, String hashId) {
         // realNode就是master_1 ;slave_1这些
-        String key = renxlHash(hashId);
-        return (!key.isEmpty() && key.startsWith(DYNAMIC_PREFIX)) ? dsProcessor.determineDatasource(invocation, key) : key;
+        return renxlHash(hashId);
     }
 
     /**

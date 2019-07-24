@@ -29,6 +29,7 @@ import org.springframework.boot.context.properties.NestedConfigurationProperty;
 import org.springframework.core.Ordered;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -62,6 +63,13 @@ public class DynamicDataSourceProperties {
      * 每一个数据源
      */
     private Map<String, DataSourceProperty> datasource = new LinkedHashMap<>();
+
+    /**
+     * 数据表 : 逻辑名以及真实表名集合
+     */
+    private Map<String, List<String>> tables = new LinkedHashMap<>();
+
+
     /**
      * 多数据源选择算法clazz，默认负载均衡算法
      */

@@ -19,17 +19,21 @@ package com.baomidou.dynamic.datasource.aop;
 import com.baomidou.dynamic.datasource.DynamicDataSourceClassResolver;
 import com.baomidou.dynamic.datasource.annotation.DS;
 import com.baomidou.dynamic.datasource.processor.DsProcessor;
-import com.baomidou.dynamic.datasource.renxl.hash.annotation.HashForDbAndTable;
-import com.baomidou.dynamic.datasource.renxl.hash.annotation.HashId;
-import com.baomidou.dynamic.datasource.renxl.hash.annotation.RenxlProcrssorException;
+import com.baomidou.dynamic.datasource.renxl.hash.annotation.*;
 import com.baomidou.dynamic.datasource.toolkit.DynamicDataSourceContextHolder;
+import com.baomidou.dynamic.datasource.toolkit.DynamicTableContextHolder;
 import lombok.Setter;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.AnnotationUtils;
+import org.springframework.util.StringUtils;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.Deque;
+import java.util.Map;
 
 /**
  *
@@ -51,6 +55,22 @@ public class DynamicDataSourceAnnotationInterceptor implements MethodInterceptor
 
     private DynamicDataSourceClassResolver dynamicDataSourceClassResolver = new DynamicDataSourceClassResolver();
 
+    private Logger logger = LoggerFactory.getLogger(DynamicDataSourceAnnotationInterceptor.class);
+    /**
+     * 目前内部使用;不注入
+     * 不由外部代码拓展
+     */
+    private IHash hashfun = new DefaulltHash();
+
+    @Setter
+    private DbHashCircle dbHashCircle;
+
+    @Setter
+    private TableHashCircleSet tableHashCircleSet;
+
+
+    // 通过线程传递到mybatis层
+
     /**
      * 业务方法的执行
      * @param invocation
@@ -63,6 +83,7 @@ public class DynamicDataSourceAnnotationInterceptor implements MethodInterceptor
             Object[] arguments = invocation.getArguments();
             // 怎么获取上下文路由字段值
             String hashId = null;
+            String logicTable = null;
             for(Object argument : arguments){
                 Field[] declaredFields = argument.getClass().getDeclaredFields();
                 for (Field declaredField: declaredFields){
@@ -71,12 +92,17 @@ public class DynamicDataSourceAnnotationInterceptor implements MethodInterceptor
                         declaredField.setAccessible(true);
                         try {
                             try {
-                                hashId = declaredField.get(argument)+ "";
+                                hashId = String.valueOf(declaredField.get(argument));
                                 HashId declaredAnnotation = declaredField.getDeclaredAnnotation(HashId.class);
                                 HashForDbAndTable hashForDbAndTable = invocation.getMethod().getDeclaredAnnotation(HashForDbAndTable.class);
-                                // 动态替换表名的关键
-                                String table = hashForDbAndTable.table();
-                                String tableUnderline = hashForDbAndTable.table_underline();
+                                // 动态替换的表名的
+                                logicTable = hashForDbAndTable.logicTable();
+                                // 如果注解中没有逻辑表名，则不会处理dao层的表名替换
+                                if(StringUtils.isEmpty(logicTable)){
+                                    String realTable = determineTableSharding(hashId, logicTable);
+                                    // 传递给mybatis的拦截器进行执行
+                                    DynamicTableContextHolder.tableInfo.set(realTable);
+                                }
                             } catch (IllegalArgumentException e) {
                                throw new RenxlProcrssorException();
                             } catch (IllegalAccessException e) {
@@ -84,6 +110,7 @@ public class DynamicDataSourceAnnotationInterceptor implements MethodInterceptor
 
                             }
                         } catch (RenxlProcrssorException e) {
+
                         }
 
                     }
@@ -95,6 +122,9 @@ public class DynamicDataSourceAnnotationInterceptor implements MethodInterceptor
             return invocation.proceed();
         } finally {
             DynamicDataSourceContextHolder.poll();
+            // 这个优先级最牛逼 所以这一步mybatis已经执行结束！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！
+            logger.info("分表信息执行完毕，清空线程中的分表信息{}", DynamicTableContextHolder.tableInfo.get());
+            DynamicTableContextHolder.tableInfo.remove();
         }
     }
 
@@ -106,10 +136,12 @@ public class DynamicDataSourceAnnotationInterceptor implements MethodInterceptor
      * @return
      * @throws Throwable
      */
-    private String determineDatasource(MethodInvocation invocation,String hashId) throws Throwable {
+    private String determineDatasource(MethodInvocation invocation,String hashId  ) throws Throwable {
          //  renxl 只支持方法级别
         // 在这里将我的注解解析成ds即可
         //
+//        这个realName 需要通过mybatis动态替换掉查询语句中的值
+
         if(hashId!=null){
             return determineDatasourceByRenxl( invocation, hashId);
         }
@@ -124,8 +156,34 @@ public class DynamicDataSourceAnnotationInterceptor implements MethodInterceptor
         return (!key.isEmpty() && key.startsWith(DYNAMIC_PREFIX)) ? dsProcessor.determineDatasource(invocation, key) : key;
     }
 
+    /**
+     *
+     * @param hashId 通过hashId注解需要指定的路由字段
+     * @param logicTable 配置的逻辑表
+     * @return 最终需要路由的真实表【逻辑表+尾缀】
+     */
+    private String determineTableSharding(String hashId,String logicTable) {
+        /**
+         * tablename1_1 tablename1
+         * ablename1_2 tablename1
+         * ablename1_3  tablename1
+         * ablename1_4  tablename1
+         * ablename2_1  tablename2
+         * ablename2_2  tablename2
+         * ablename2_3  tablename2
+         *
+         * twoTableName1_1 twoTableName1
+         * twoTableName2_1 twoTableName2
+         */
+        String realNode = renxlHash(hashId);
+        Map<String, TableHashCircle> logicTableAndHashCircle = tableHashCircleSet.getLogicTableAndHashCircle();
+        TableHashCircle tableHashCircle = logicTableAndHashCircle.get(logicTable);
+        String realTable = tableHashCircle.get(hashId);
+        return realTable;
+    }
+
     private String determineDatasourceByRenxl(MethodInvocation invocation, String hashId) {
-        //
+        // realNode就是master_1 ;slave_1这些
         String key = renxlHash(hashId);
         return (!key.isEmpty() && key.startsWith(DYNAMIC_PREFIX)) ? dsProcessor.determineDatasource(invocation, key) : key;
     }
@@ -136,6 +194,17 @@ public class DynamicDataSourceAnnotationInterceptor implements MethodInterceptor
      * @return
      */
     private String renxlHash(String hashId) {
-        return  hashId;
+        long hash = hashfun.hash(hashId);
+        String realNode = dbHashCircle.get(String.valueOf(hash));
+        return  realNode;
     }
+//
+//
+//    private String renxlHashTable(String hashId,String logicTable) {
+//        long hash = hashfun.hash(hashId);
+//        String realNode = tableHashCircleSet.getLogicTableAndHashCircle().get(logicTable).get(String.valueOf(hash));
+//        return  realNode;
+//    }
+
+
 }

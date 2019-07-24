@@ -28,6 +28,9 @@ import com.baomidou.dynamic.datasource.processor.DsSessionProcessor;
 import com.baomidou.dynamic.datasource.processor.DsSpelExpressionProcessor;
 import com.baomidou.dynamic.datasource.provider.DynamicDataSourceProvider;
 import com.baomidou.dynamic.datasource.provider.YmlDynamicDataSourceProvider;
+import com.baomidou.dynamic.datasource.renxl.hash.annotation.DbHashCircle;
+import com.baomidou.dynamic.datasource.renxl.hash.annotation.TableHashCircle;
+import com.baomidou.dynamic.datasource.renxl.hash.annotation.TableHashCircleSet;
 import com.baomidou.dynamic.datasource.spring.boot.autoconfigure.druid.DruidDynamicDataSourceConfiguration;
 import com.baomidou.dynamic.datasource.strategy.DynamicDataSourceStrategy;
 import lombok.extern.slf4j.Slf4j;
@@ -93,9 +96,11 @@ public class DynamicDataSourceAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public DynamicDataSourceAnnotationAdvisor dynamicDatasourceAnnotationAdvisor(DsProcessor dsProcessor) {
+    public DynamicDataSourceAnnotationAdvisor dynamicDatasourceAnnotationAdvisor(DsProcessor dsProcessor, DbHashCircle dbHashCircle, TableHashCircleSet tableHashCircleSet) {
         DynamicDataSourceAnnotationInterceptor interceptor = new DynamicDataSourceAnnotationInterceptor();
         interceptor.setDsProcessor(dsProcessor);
+        interceptor.setDbHashCircle(dbHashCircle);
+        interceptor.setTableHashCircleSet(tableHashCircleSet);
         DynamicDataSourceAnnotationAdvisor advisor = new DynamicDataSourceAnnotationAdvisor(interceptor);
         advisor.setOrder(properties.getOrder());
         return advisor;

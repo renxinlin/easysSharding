@@ -16,6 +16,7 @@
  */
 package com.baomidou.dynamic.datasource.aop;
 
+import com.alibaba.druid.util.StringUtils;
 import com.baomidou.dynamic.datasource.DynamicDataSourceClassResolver;
 import com.baomidou.dynamic.datasource.annotation.DS;
 import com.baomidou.dynamic.datasource.processor.DsProcessor;
@@ -28,11 +29,11 @@ import org.aopalliance.intercept.MethodInvocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.AnnotationUtils;
-import org.springframework.util.StringUtils;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.Deque;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Map;
 
 /**
@@ -83,7 +84,7 @@ public class DynamicDataSourceAnnotationInterceptor implements MethodInterceptor
             Object[] arguments = invocation.getArguments();
             // 怎么获取上下文路由字段值
             String hashId = null;
-            String logicTable = null;
+            String[] logicTables = null;
             for(Object argument : arguments){
                 Field[] declaredFields = argument.getClass().getDeclaredFields();
                 for (Field declaredField: declaredFields){
@@ -95,13 +96,18 @@ public class DynamicDataSourceAnnotationInterceptor implements MethodInterceptor
                                 hashId = String.valueOf(declaredField.get(argument));
                                 HashId declaredAnnotation = declaredField.getDeclaredAnnotation(HashId.class);
                                 HashForDbAndTable hashForDbAndTable = invocation.getMethod().getDeclaredAnnotation(HashForDbAndTable.class);
-                                // 动态替换的表名的
-                                logicTable = hashForDbAndTable.logicTable();
+                                // 动态替换的表名
+                                logicTables = hashForDbAndTable.logicTable();
                                 // 如果注解中没有逻辑表名，则不会处理dao层的表名替换
-                                if(!StringUtils.isEmpty(logicTable)){
-                                    String realTable = determineTableSharding(hashId, logicTable);
+                                if(logicTables != null && logicTables.length>0){
+                                    ArrayList<String> realTables = new ArrayList<>();
+                                    for(String logicTable:logicTables){
+
+                                        String realTable = determineTableSharding(hashId, logicTable);
+                                        realTables.add(realTable);
+                                    }
                                     // 传递给mybatis的拦截器进行执行
-                                    DynamicTableContextHolder.tableInfo.set(realTable);
+                                    DynamicTableContextHolder.tablesInfo.set(realTables);
                                 }
                             } catch (IllegalArgumentException e) {
                                throw new RenxlProcrssorException();
@@ -123,10 +129,13 @@ public class DynamicDataSourceAnnotationInterceptor implements MethodInterceptor
         } finally {
             DynamicDataSourceContextHolder.poll();
             // 这个优先级最牛逼 所以这一步mybatis已经执行结束！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！
-            logger.info("分表信息执行完毕，清空线程中的分表信息{}", DynamicTableContextHolder.tableInfo.get());
-            DynamicTableContextHolder.tableInfo.remove();
+            String[] realTables = (String[]) DynamicTableContextHolder.tablesInfo.get().toArray();
+            logger.info("分表信息执行完毕，清空线程中的分表信息{}", Arrays.toString(realTables) );
+//            DynamicTableContextHolder.tableInfo.remove();
+            DynamicTableContextHolder.tablesInfo.remove();
         }
     }
+
 
     /**
      * 这一步是关键

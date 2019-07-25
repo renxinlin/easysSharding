@@ -12,10 +12,12 @@ import org.apache.ibatis.reflection.MetaObject;
 import org.apache.ibatis.session.ResultHandler;
 import org.apache.ibatis.session.RowBounds;
 import org.springframework.stereotype.Component;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import java.lang.reflect.Field;
 import java.sql.Connection;
+import java.util.List;
 import java.util.Properties;
 
 import static org.apache.ibatis.reflection.SystemMetaObject.DEFAULT_OBJECT_FACTORY;
@@ -42,8 +44,9 @@ public class ShardTableInterceptor implements Interceptor  {
     public Object intercept(Invocation invocation) throws Throwable {
         System.out.println("================================拦截开始============================");
 
-        String realTable =  DynamicTableContextHolder.tableInfo.get();// 什么时候删除 最优先级Aop删除 注意！！！这个很关键不要各种aop没完成线程数据就不一致了
-        if(!StringUtils.isEmpty(realTable)){
+//        String realTable =  DynamicTableContextHolder.tableInfo.get();// 什么时候删除 最优先级Aop删除 注意！！！这个很关键不要各种aop没完成线程数据就不一致了
+        List<String> realTables = DynamicTableContextHolder.tablesInfo.get();
+        if(!CollectionUtils.isEmpty(realTables)){
             StatementHandler statementHandler = (StatementHandler) invocation.getTarget();
             MetaObject metaStatementHandler = MetaObject.forObject(statementHandler, DEFAULT_OBJECT_FACTORY, DEFAULT_OBJECT_WRAPPER_FACTORY,new DefaultReflectorFactory());
             BoundSql boundSql = (BoundSql) metaStatementHandler.getValue("delegate.boundSql");
@@ -51,16 +54,18 @@ public class ShardTableInterceptor implements Interceptor  {
             String sql = boundSql.getSql();
             String mSql = sql;
             // 自定义hash一致性分库分表位置: 通过hash一致算法路由之后的数据
+            for( String realTable:realTables){
+                int i = realTable.lastIndexOf("_");
+                String logicTable = realTable.substring(0,i);
+                mSql = mSql.replaceAll(logicTable, realTable);
+            }
 
-            int i = realTable.lastIndexOf("_");
-            String logicTable = realTable.substring(0,i);
-            String finalSql = mSql.replaceAll(logicTable, realTable);
 
 
             //通过反射修改sql语句
             Field field = boundSql.getClass().getDeclaredField("sql");
             field.setAccessible(true);
-            field.set(boundSql, finalSql);
+            field.set(boundSql, mSql);
         }
 
         // 传递给下一个拦截器处理

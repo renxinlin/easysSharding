@@ -28,13 +28,13 @@ import java.lang.annotation.*;
 @Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
-public @interface HashForDbAndTable {
+public @interface HashForDbAndTableJoin {
 
     /**
      * 数据表的连接hash field
      *
      */
-    String[] logicTable();
+    String[] logicTables();
 
 
 }

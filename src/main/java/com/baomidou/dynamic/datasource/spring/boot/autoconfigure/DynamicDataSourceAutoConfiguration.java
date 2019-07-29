@@ -76,7 +76,9 @@ public class DynamicDataSourceAutoConfiguration {
     // hash 规则部分开始======================================================start=============================================
 
     @Bean
+    @ConditionalOnMissingBean
     public ShardTableInterceptor getInterceptor(){
+        log.info("======================================================加载分表拦截器======================================================");
         return new ShardTableInterceptor();
     }
 
@@ -121,6 +123,7 @@ public class DynamicDataSourceAutoConfiguration {
         dataSource.setStrategy(properties.getStrategy());
         dataSource.setProvider(dynamicDataSourceProvider);
         dataSource.setP6spy(properties.getP6spy());
+
         dataSource.setStrict(properties.getStrict());
         return dataSource;
     }

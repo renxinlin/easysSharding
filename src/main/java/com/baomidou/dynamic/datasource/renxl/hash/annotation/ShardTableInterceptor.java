@@ -1,22 +1,18 @@
 package com.baomidou.dynamic.datasource.renxl.hash.annotation;
 
 import com.baomidou.dynamic.datasource.toolkit.DynamicTableContextHolder;
-import org.apache.ibatis.cache.CacheKey;
-import org.apache.ibatis.executor.Executor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.ibatis.executor.statement.StatementHandler;
 import org.apache.ibatis.mapping.BoundSql;
-import org.apache.ibatis.mapping.MappedStatement;
 import org.apache.ibatis.plugin.*;
 import org.apache.ibatis.reflection.DefaultReflectorFactory;
 import org.apache.ibatis.reflection.MetaObject;
-import org.apache.ibatis.session.ResultHandler;
-import org.apache.ibatis.session.RowBounds;
-import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
-import org.springframework.util.StringUtils;
 
 import java.lang.reflect.Field;
 import java.sql.Connection;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 
@@ -37,28 +33,37 @@ import static org.apache.ibatis.reflection.SystemMetaObject.DEFAULT_OBJECT_WRAPP
         method = "prepare",
         args = {Connection.class, Integer.class}
 )})
+@Slf4j
 public class ShardTableInterceptor implements Interceptor  {
 
 
     @Override
     public Object intercept(Invocation invocation) throws Throwable {
-        System.out.println("================================拦截开始============================");
 
 //        String realTable =  DynamicTableContextHolder.tableInfo.get();// 什么时候删除 最优先级Aop删除 注意！！！这个很关键不要各种aop没完成线程数据就不一致了
+        // realTables为本地线程变量的副本;千万不要传递给其他线程，否则我的分库分表可能发生不知名错误
         List<String> realTables = DynamicTableContextHolder.tablesInfo.get();
         if(!CollectionUtils.isEmpty(realTables)){
             StatementHandler statementHandler = (StatementHandler) invocation.getTarget();
             MetaObject metaStatementHandler = MetaObject.forObject(statementHandler, DEFAULT_OBJECT_FACTORY, DEFAULT_OBJECT_WRAPPER_FACTORY,new DefaultReflectorFactory());
             BoundSql boundSql = (BoundSql) metaStatementHandler.getValue("delegate.boundSql");
-
             String sql = boundSql.getSql();
             String mSql = sql;
+            List<String> interceptorsAfter = new ArrayList<>();
+            List<String> interceptorsBefore = new ArrayList<>();
             // 自定义hash一致性分库分表位置: 通过hash一致算法路由之后的数据
             for( String realTable:realTables){
                 int i = realTable.lastIndexOf("_");
                 String logicTable = realTable.substring(0,i);
-                mSql = mSql.replaceAll(logicTable, realTable);
+                StringBuffer logicTableSb = new StringBuffer(" ").append(logicTable).append(" ");
+                StringBuffer realTableSb = new StringBuffer(" ").append(realTable).append(" ");
+                mSql = mSql.replaceAll(logicTableSb.toString(), realTableSb.toString());
+                if(mSql.contains(realTable)){
+                    interceptorsAfter.add(realTable);
+                    interceptorsBefore.add(logicTable);
+                }
             }
+            log.info("renxl: ================================拦截开始,表名替换如下============================interceptorsBefore =>{},interceptorsAfter=>{}", Arrays.toString(interceptorsBefore.toArray()),Arrays.toString(interceptorsAfter.toArray()));
 
 
 
@@ -77,11 +82,11 @@ public class ShardTableInterceptor implements Interceptor  {
     @Override
     public Object plugin(Object target) {
         // 当目标类是StatementHandler类型时，才包装目标类，否者直接返回目标本身,减少目标被代理的次数
-        if (target instanceof StatementHandler) {
+//        if (target instanceof StatementHandler) {
             return Plugin.wrap(target, this);
-        } else {
-            return target;
-        }
+//        } else {
+//            return target;
+//        }
     }
 
     @Override

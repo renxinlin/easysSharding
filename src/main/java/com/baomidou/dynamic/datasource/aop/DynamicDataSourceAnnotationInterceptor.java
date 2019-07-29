@@ -34,6 +34,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -107,6 +108,7 @@ public class DynamicDataSourceAnnotationInterceptor implements MethodInterceptor
                                         realTables.add(realTable);
                                     }
                                     // 传递给mybatis的拦截器进行执行
+                                    // 设置本地线程变量的副本
                                     DynamicTableContextHolder.tablesInfo.set(realTables);
                                 }
                             } catch (IllegalArgumentException e) {
@@ -129,10 +131,12 @@ public class DynamicDataSourceAnnotationInterceptor implements MethodInterceptor
         } finally {
             DynamicDataSourceContextHolder.poll();
             // 这个优先级最牛逼 所以这一步mybatis已经执行结束！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！
-            String[] realTables = (String[]) DynamicTableContextHolder.tablesInfo.get().toArray();
+            List<String> strings = DynamicTableContextHolder.tablesInfo.get();
+            Object[] realTables = strings .toArray();
             logger.info("分表信息执行完毕，清空线程中的分表信息{}", Arrays.toString(realTables) );
 //            DynamicTableContextHolder.tableInfo.remove();
-            DynamicTableContextHolder.tablesInfo.remove();
+            // 防止内存泄漏
+            DynamicTableContextHolder.tablesInfo.remove();// 先计算hash对应数组位置后遍历移除
         }
     }
 

@@ -18,16 +18,36 @@ package com.baomidou.dynamic.datasource.toolkit;
 
 import org.springframework.util.StringUtils;
 
+import java.io.IOException;
+import java.io.OutputStream;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.List;
 
 /**
  * 核心基于ThreadLocal的切换数据源工具类
  *
- * @author TaoYu Kanyuxia
+ * @author renxl
  * @since 1.0.0
  */
+
 public final class DynamicTableContextHolder {
-    public static final ThreadLocal<String> tableInfo = new ThreadLocal();
+    // 如果threadlocal.get之后的副本，只在当前线程中使用，那么是线程安全的；如果对其他线程暴露，不一定是线程安全的。
+    // 切记list的引用不可暴漏出去！！！！！！！！！！！！！
+    public static final ThreadLocal<List<String>> tablesInfo = new ThreadLocal();
+
+    public static void main(String[] args) throws IOException {
+        Socket socket = new Socket("1",12);
+        OutputStream outputStream = socket.getOutputStream();
+        outputStream.write(new byte[12]);
+        ServerSocket sc = new ServerSocket(1223);
+        Socket accept = sc.accept(); // 阻塞
+        accept.getOutputStream().write(new byte[11]);// BIO阻塞
+
+
+
+    }
 
 }

@@ -25,6 +25,7 @@ import java.net.Socket;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 核心基于ThreadLocal的切换数据源工具类
@@ -36,7 +37,13 @@ import java.util.List;
 public final class DynamicTableContextHolder {
     // 如果threadlocal.get之后的副本，只在当前线程中使用，那么是线程安全的；如果对其他线程暴露，不一定是线程安全的。
     // 切记list的引用不可暴漏出去！！！！！！！！！！！！！
+
     public static final ThreadLocal<List<String>> tablesInfo = new ThreadLocal();
+
+    public static final ThreadLocal<AtomicInteger> aopNum = new ThreadLocal();
+
+
+
 
     public static void main(String[] args) throws IOException {
         Socket socket = new Socket("1",12);

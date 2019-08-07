@@ -29,13 +29,12 @@ import org.aopalliance.intercept.MethodInvocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.AnnotationUtils;
+import org.springframework.util.CollectionUtils;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  *
@@ -109,7 +108,23 @@ public class DynamicDataSourceAnnotationInterceptor implements MethodInterceptor
                                     }
                                     // 传递给mybatis的拦截器进行执行
                                     // 设置本地线程变量的副本
-                                    DynamicTableContextHolder.tablesInfo.set(realTables);
+                                    AtomicInteger atomicInteger = DynamicTableContextHolder.aopNum.get();
+                                    if(atomicInteger == null){
+                                        AtomicInteger aopNum = new AtomicInteger();
+                                        aopNum.incrementAndGet();
+                                        DynamicTableContextHolder.aopNum.set(aopNum);
+                                    }else{
+                                        atomicInteger.incrementAndGet();
+                                        DynamicTableContextHolder.aopNum.set(atomicInteger);
+
+                                    }
+                                    if (CollectionUtils.isEmpty(DynamicTableContextHolder.tablesInfo.get())){
+                                        DynamicTableContextHolder.tablesInfo.set(realTables);
+                                    }else {
+                                        final List<String> oldRealTables = DynamicTableContextHolder.tablesInfo.get();
+                                        realTables.removeIf(realTable-> oldRealTables.contains(realTable));
+                                        oldRealTables.addAll(realTables);
+                                    }
                                 }
                             } catch (IllegalArgumentException e) {
                                throw new RenxlProcrssorException();
@@ -131,15 +146,40 @@ public class DynamicDataSourceAnnotationInterceptor implements MethodInterceptor
         } finally {
             DynamicDataSourceContextHolder.poll();
             // 这个优先级最牛逼 所以这一步mybatis已经执行结束！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！
-            List<String> strings = DynamicTableContextHolder.tablesInfo.get();
-            Object[] realTables = strings .toArray();
-            logger.info("分表信息执行完毕，清空线程中的分表信息{}", Arrays.toString(realTables) );
-//            DynamicTableContextHolder.tableInfo.remove();
-            // 防止内存泄漏
-            DynamicTableContextHolder.tablesInfo.remove();// 先计算hash对应数组位置后遍历移除
-        }
-    }
 
+
+            AtomicInteger atomicInteger = DynamicTableContextHolder.aopNum.get();
+            if(atomicInteger != null ){
+                int andDecrement = atomicInteger.decrementAndGet();
+                if (andDecrement == 0){
+                    List<String> realTablesList = DynamicTableContextHolder.tablesInfo.get();
+                    if (!CollectionUtils.isEmpty(realTablesList)){
+                        Object[] realTables = realTablesList .toArray();
+                        logger.info("分表信息执行完毕，清空线程中的分表信息{}", Arrays.toString(realTables) );
+                        // 防止内存泄漏
+                        DynamicTableContextHolder.tablesInfo.remove();// 先计算hash对应数组位置后遍历移除
+                    }
+                    DynamicTableContextHolder.aopNum.remove();
+                }
+            }
+        }
+
+    }
+//
+//    public static void main(String[] args) {
+//        ArrayList<String> oldRealTables = new ArrayList<>();
+//        ArrayList<String> realTables = new ArrayList<>();
+//        oldRealTables.add("1");
+//        oldRealTables.add("2");
+//        oldRealTables.add("3");
+//
+//        realTables.add("4");
+//        realTables.add("2");
+//        realTables.add("5");
+//        realTables.removeIf(realTable-> oldRealTables.contains(realTable));
+//        oldRealTables.addAll(realTables);
+//        oldRealTables.forEach(System.out::println);
+//    }
 
     /**
      * 这一步是关键

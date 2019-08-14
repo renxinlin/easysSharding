@@ -1,12 +1,14 @@
 package com.baomidou.dynamic.datasource.renxl.hash.annotation;
 
 import com.baomidou.dynamic.datasource.toolkit.DynamicTableContextHolder;
+import com.baomidou.mybatisplus.core.toolkit.PluginUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ibatis.executor.statement.StatementHandler;
 import org.apache.ibatis.mapping.BoundSql;
 import org.apache.ibatis.plugin.*;
 import org.apache.ibatis.reflection.DefaultReflectorFactory;
 import org.apache.ibatis.reflection.MetaObject;
+import org.apache.ibatis.reflection.SystemMetaObject;
 import org.springframework.util.CollectionUtils;
 
 import java.lang.reflect.Field;
@@ -44,8 +46,9 @@ public class ShardTableInterceptor implements Interceptor  {
         // realTables为本地线程变量的副本;千万不要传递给其他线程，否则我的分库分表可能发生不知名错误
         List<String> realTables = DynamicTableContextHolder.tablesInfo.get();
         if(!CollectionUtils.isEmpty(realTables)){
-            StatementHandler statementHandler = (StatementHandler) invocation.getTarget();
-            MetaObject metaStatementHandler = MetaObject.forObject(statementHandler, DEFAULT_OBJECT_FACTORY, DEFAULT_OBJECT_WRAPPER_FACTORY,new DefaultReflectorFactory());
+
+            StatementHandler statementHandler = (StatementHandler) PluginUtils.realTarget(invocation.getTarget());
+            MetaObject metaStatementHandler = SystemMetaObject.forObject(statementHandler);
             BoundSql boundSql = (BoundSql) metaStatementHandler.getValue("delegate.boundSql");
             String sql = boundSql.getSql();
             String mSql = sql;
@@ -63,7 +66,9 @@ public class ShardTableInterceptor implements Interceptor  {
                     interceptorsBefore.add(logicTable);
                 }
             }
-            log.info("renxl: ================================拦截开始,表名替换如下============================interceptorsBefore =>{},interceptorsAfter=>{}", Arrays.toString(interceptorsBefore.toArray()),Arrays.toString(interceptorsAfter.toArray()));
+            if(!CollectionUtils.isEmpty(interceptorsBefore)){
+                log.info("renxl: ================================拦截开始,表名替换如下============================interceptorsBefore =>{},interceptorsAfter=>{}", Arrays.toString(interceptorsBefore.toArray()),Arrays.toString(interceptorsAfter.toArray()));
+            }
 
 
 

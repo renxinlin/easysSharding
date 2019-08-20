@@ -75,9 +75,11 @@ public class DynamicDataSourceProperties {
      */
     private Class<? extends DynamicDataSourceStrategy> strategy = LoadBalanceDynamicDataSourceStrategy.class;
     /**
-     * aop切面顺序，默认优先级最高
+     * aop切面顺序，默认优先级最高 ：
+     * todo 这里与自定义的tcc框架做妥协使其的优先级低于事务的优先级
+     *
      */
-    private Integer order = Ordered.HIGHEST_PRECEDENCE;
+    private Integer order = Ordered.HIGHEST_PRECEDENCE + 1;
     /**
      * Druid全局参数配置
      */

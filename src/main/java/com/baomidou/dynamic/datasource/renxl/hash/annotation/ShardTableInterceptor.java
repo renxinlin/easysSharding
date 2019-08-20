@@ -55,6 +55,7 @@ public class ShardTableInterceptor implements Interceptor  {
             List<String> interceptorsAfter = new ArrayList<>();
             List<String> interceptorsBefore = new ArrayList<>();
             // 自定义hash一致性分库分表位置: 通过hash一致算法路由之后的数据
+            mSql = mSql +" ";
             for( String realTable:realTables){
                 int i = realTable.lastIndexOf("_");
                 String logicTable = realTable.substring(0,i);
